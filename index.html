@@ -1,0 +1,2175 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>급량비 스마트 매니저</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    /* Disable arrows on number input */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-24 font-sans antialiased selection:bg-brand-100 selection:text-brand-700">
+
+  <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 py-3 shadow-xs">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-600 to-cyan-500 flex items-center justify-center text-white shadow-sm">
+          <i class="fa-solid fa-utensils text-sm"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-1.5">
+            급량비 매니저
+            <span id="currentMonthBadge" class="text-xs px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-semibold">8월</span>
+          </h1>
+          <p class="text-[11px] text-slate-500">1식 9,000원 · 월 최대 20식</p>
+        </div>
+      </div>
+
+      <!-- Quick Action Header Buttons -->
+      <div class="flex items-center gap-1.5">
+        <!-- Undo Delete Restaurant Header Button -->
+        <button id="undoDeleteHeaderBtn" title="삭제된 식당 복구" class="hidden text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100 transition font-medium">
+          <i class="fa-solid fa-trash-arrow-up text-rose-600"></i>
+          <span>삭제 취소</span>
+        </button>
+        <!-- Undo Rollover Header Button -->
+        <button id="undoRolloverHeaderBtn" title="이전 달로 복원" class="hidden text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition font-medium">
+          <i class="fa-solid fa-rotate-left text-amber-600"></i>
+          <span>이월 취소</span>
+        </button>
+        <!-- AI Assistant Button -->
+        <button id="openAiModalBtn" title="AI 스마트 비서" class="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold shadow-xs hover:from-purple-700 hover:to-indigo-700 transition transform active:scale-95">
+          <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i>
+          <span>AI 비서</span>
+        </button>
+        <button id="rolloverMonthBtn" title="다음 달로 이월하기" class="text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 transition">
+          <i class="fa-solid fa-calendar-plus text-sky-600"></i>
+          <span class="hidden sm:inline">다음 달로</span> 이월
+        </button>
+        <button id="openSettingsBtn" title="데이터 관리" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition">
+          <i class="fa-solid fa-gear text-sm"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-4 space-y-4">
+    <!-- Summary Section -->
+    <section class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <!-- Total Balance Card -->
+      <div class="col-span-2 sm:col-span-1 bg-gradient-to-br from-slate-900 to-slate-800 text-white p-3.5 rounded-2xl shadow-sm relative overflow-hidden">
+        <div class="absolute -right-4 -bottom-4 text-slate-700/30 text-6xl">
+          <i class="fa-solid fa-wallet"></i>
+        </div>
+        <p class="text-xs font-medium text-slate-300">총 잔액 (이용 가능)</p>
+        <p id="statTotalBalance" class="text-2xl font-bold mt-1 tracking-tight text-white">0원</p>
+        <div class="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
+          <span>이월액 총합</span>
+          <span id="statTotalCarried" class="text-slate-300 font-medium">0원</span>
+        </div>
+      </div>
+
+      <!-- Meal Quota (20 Max) Card -->
+      <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-500 font-medium">이번달 급량수</span>
+          <span id="quotaProgressLabel" class="text-xs font-bold px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-600">0 / 20개</span>
+        </div>
+        <div class="mt-2">
+          <div class="flex items-baseline gap-1">
+            <span id="statUsedCount" class="text-xl font-bold text-slate-900">0</span>
+            <span class="text-xs text-slate-500">/ 20 식</span>
+          </div>
+          <!-- Progress bar -->
+          <div class="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden">
+            <div id="quotaProgressBar" class="bg-sky-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
+        <p id="quotaRemainingText" class="text-[11px] text-slate-400 mt-1">20개 추가 가능</p>
+      </div>
+
+      <!-- Monthly Recharged Amount -->
+      <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-500 font-medium">이번달 충전액</span>
+          <span class="text-[10px] text-slate-400">9,000원 × 식수</span>
+        </div>
+        <div class="mt-2">
+          <span id="statTotalRecharge" class="text-xl font-bold text-sky-600">0원</span>
+          <p class="text-[11px] text-slate-400 mt-1">최대 180,000원</p>
+        </div>
+      </div>
+
+      <!-- Monthly Spent Amount -->
+      <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-500 font-medium">이번달 총 지출</span>
+          <i class="fa-solid fa-receipt text-slate-300 text-sm"></i>
+        </div>
+        <div class="mt-2">
+          <span id="statTotalSpent" class="text-xl font-bold text-rose-500">0원</span>
+          <p id="statSpentCount" class="text-[11px] text-slate-400 mt-1">총 0건 지출</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Control Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+      <div class="flex items-center gap-2">
+        <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+          식당별 현황
+          <span id="restaurantCountBadge" class="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-semibold">0</span>
+        </h2>
+        <!-- Search bar -->
+        <div class="relative">
+          <input type="text" id="searchRestaurant" placeholder="식당 검색..." 
+                 class="text-xs pl-7 pr-3 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 w-36 sm:w-44 transition">
+          <i class="fa-solid fa-magnifying-glass text-[11px] text-slate-400 absolute left-2.5 top-2.5"></i>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- View Toggle (Card vs Table) -->
+        <div class="bg-slate-200/80 p-0.5 rounded-lg flex text-xs">
+          <button id="viewCardBtn" class="px-2.5 py-1 rounded-md bg-white font-medium text-slate-800 shadow-xs transition">
+            <i class="fa-solid fa-grip mr-1"></i>카드
+          </button>
+          <button id="viewTableBtn" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition">
+            <i class="fa-solid fa-table-list mr-1"></i>표
+          </button>
+        </div>
+
+        <!-- Add Restaurant Button -->
+        <button id="openAddRestaurantBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold shadow-xs transition">
+          <i class="fa-solid fa-plus text-xs"></i>
+          <span>식당 추가</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Restaurant Card View Container -->
+    <div id="cardViewContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+      <!-- Dynamic restaurant cards inserted here -->
+    </div>
+
+    <!-- Restaurant Table View Container -->
+    <div id="tableViewContainer" class="hidden bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-slate-600">
+          <thead class="bg-slate-50 text-slate-700 uppercase border-b border-slate-200 font-semibold">
+            <tr>
+              <th scope="col" class="py-3 px-3">식당명</th>
+              <th scope="col" class="py-3 px-3 text-right">이월</th>
+              <th scope="col" class="py-3 px-3 text-center">급량수</th>
+              <th scope="col" class="py-3 px-3 text-right">충전액</th>
+              <th scope="col" class="py-3 px-3 text-right">사용</th>
+              <th scope="col" class="py-3 px-3 text-right font-bold text-slate-900">잔액</th>
+              <th scope="col" class="py-3 px-3 text-center">작업</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-slate-100">
+            <!-- Dynamic table rows inserted here -->
+          </tbody>
+          <tfoot class="bg-slate-50 font-semibold text-slate-900 border-t border-slate-200">
+            <tr>
+              <td class="py-3 px-3">합계</td>
+              <td id="tableFooterCarry" class="py-3 px-3 text-right text-slate-600">0</td>
+              <td id="tableFooterCount" class="py-3 px-3 text-center text-sky-600">0 / 20</td>
+              <td id="tableFooterRecharge" class="py-3 px-3 text-right text-sky-600">0</td>
+              <td id="tableFooterSpent" class="py-3 px-3 text-right text-rose-600">0</td>
+              <td id="tableFooterBalance" class="py-3 px-3 text-right font-bold text-slate-900">0</td>
+              <td class="py-3 px-3 text-center text-slate-400">-</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="hidden py-16 text-center">
+      <div class="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+        <i class="fa-solid fa-store-slash"></i>
+      </div>
+      <p class="text-sm font-semibold text-slate-700">등록된 식당이 없거나 검색 결과가 없습니다.</p>
+      <p class="text-xs text-slate-500 mt-1">식당 추가 버튼을 눌러 새로운 식당을 등록해보세요.</p>
+    </div>
+  </main>
+
+  <!-- Floating Quick Expense Record Button -->
+  <div class="fixed bottom-5 right-5 z-20">
+    <button id="fabQuickSpendBtn" class="flex items-center gap-2 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white px-4 py-3 rounded-full shadow-lg hover:shadow-xl transition transform active:scale-95 font-medium text-sm">
+      <i class="fa-solid fa-pen text-sm"></i>
+      <span>지출 입력</span>
+    </button>
+  </div>
+
+  <!-- Modal: AI Assistant Modal -->
+  <div id="aiModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 hidden">
+    <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Header -->
+      <div class="px-5 py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-amber-300">
+            <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm sm:text-base leading-tight">Gemini AI 급량비 비서</h3>
+            <p class="text-[11px] text-purple-100">영수증 사진 인식 · 자연어 지출 기록 · 20식 스마트 배분</p>
+          </div>
+        </div>
+        <button onclick="closeModal('aiModal')" class="text-white/80 hover:text-white p-1 rounded-lg">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="flex border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-600">
+        <button id="aiTabReceiptBtn" onclick="switchAiTab('receipt')" class="flex-1 py-2.5 px-3 border-b-2 border-purple-600 text-purple-700 bg-white transition flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-camera"></i> 영수증 인식
+        </button>
+        <button id="aiTabNlBtn" onclick="switchAiTab('nl')" class="flex-1 py-2.5 px-3 border-b-2 border-transparent hover:text-slate-900 transition flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-comment-dots"></i> 한줄 지출
+        </button>
+        <button id="aiTabAdvisorBtn" onclick="switchAiTab('advisor')" class="flex-1 py-2.5 px-3 border-b-2 border-transparent hover:text-slate-900 transition flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-chart-pie"></i> 20식 배분&추천
+        </button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="p-5 overflow-y-auto space-y-4 flex-1 text-xs">
+        <!-- Tab 1: Receipt Image Scanner -->
+        <div id="aiTabReceiptSection" class="space-y-3">
+          <p class="text-slate-600 leading-relaxed">
+            식당 결제 영수증이나 모바일 카드 승인 내역 캡처본을 올리면, AI가 식당과 결제 금액을 감지하여 지출로 즉시 기록합니다.
+          </p>
+
+          <div id="receiptDropArea" class="border-2 border-dashed border-purple-200 hover:border-purple-400 bg-purple-50/50 rounded-2xl p-5 text-center transition cursor-pointer relative">
+            <input type="file" id="receiptFileInput" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+            <div id="receiptUploadPlaceholder" class="space-y-1.5 pointer-events-none">
+              <div class="w-11 h-11 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mx-auto text-lg">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+              </div>
+              <p class="font-bold text-slate-800 text-xs">영수증 사진을 선택하거나 드래그하세요</p>
+              <p class="text-[10px] text-slate-400">JPG, PNG, 스마트폰 캡처 지원</p>
+            </div>
+            <!-- Image Preview Box -->
+            <div id="receiptPreviewBox" class="hidden flex items-center gap-3 text-left">
+              <img id="receiptPreviewImg" src="" alt="영수증 미리보기" class="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-xs">
+              <div class="flex-1 min-w-0">
+                <p id="receiptFileName" class="font-bold text-slate-800 truncate text-xs">receipt.jpg</p>
+                <p id="receiptFileSize" class="text-[10px] text-slate-400">120 KB</p>
+                <span class="text-[10px] text-purple-600 font-semibold mt-1 inline-block">다른 이미지로 변경하려면 클릭</span>
+              </div>
+            </div>
+          </div>
+
+          <button id="analyzeReceiptBtn" disabled class="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-brain"></i>
+            <span>AI 영수증 분석 시작</span>
+          </button>
+
+          <!-- Parsing Result Box -->
+          <div id="receiptResultBox" class="hidden p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-800 flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-check text-emerald-500"></i> AI 분석 결과
+              </span>
+              <span id="receiptConfidenceBadge" class="text-[10px] bg-purple-100 text-purple-700 font-semibold px-2 py-0.5 rounded-full">인식 완료</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="bg-white p-2.5 rounded-lg border border-slate-200">
+                <span class="text-[10px] text-slate-400 block">매칭된 식당</span>
+                <span id="parsedReceiptRest" class="font-bold text-slate-800 text-sm">-</span>
+              </div>
+              <div class="bg-white p-2.5 rounded-lg border border-slate-200">
+                <span class="text-[10px] text-slate-400 block">결제 금액</span>
+                <span id="parsedReceiptAmount" class="font-bold text-rose-600 text-sm">0원</span>
+              </div>
+            </div>
+            <div class="bg-white p-2.5 rounded-lg border border-slate-200">
+              <span class="text-[10px] text-slate-400 block">품목 / 메모</span>
+              <span id="parsedReceiptMemo" class="font-medium text-slate-700">-</span>
+            </div>
+            <button id="applyReceiptSpendBtn" class="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition">
+              이 내용으로 즉시 차감 기록하기
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab 2: Natural Language Quick Spend -->
+        <div id="aiTabNlSection" class="hidden space-y-3">
+          <p class="text-slate-600 leading-relaxed">
+            식당 선택과 금액 입력을 따로 할 필요 없이, 평소 말하듯 적어주시면 AI가 알아서 매칭하여 지출을 등록합니다.
+          </p>
+          <div class="space-y-1.5">
+            <label class="font-bold text-slate-700 block">자연어 지출 입력</label>
+            <div class="relative">
+              <textarea id="nlInputText" rows="3" placeholder="예: 담소에서 순대국 점심 9000원 먹었어" class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
+            </div>
+            <div class="flex flex-wrap gap-1.5 pt-1">
+              <button type="button" onclick="setNlExample('담소에서 순대국 9000원 결제')" class="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600">담소 9,000원</button>
+              <button type="button" onclick="setNlExample('철원에서 점심 식사 18000원 썼어요')" class="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600">철원 18,000원</button>
+              <button type="button" onclick="setNlExample('파리바게트 샌드위치 7500원')" class="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600">파리바게트 7,500원</button>
+            </div>
+          </div>
+
+          <button id="parseNlSpendBtn" class="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-sparkles"></i>
+            <span>지출 내역 AI 분석 & 등록</span>
+          </button>
+
+          <!-- NL Result Box -->
+          <div id="nlResultBox" class="hidden p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-800 flex items-center gap-1.5">
+                <i class="fa-solid fa-check-circle text-emerald-500"></i> 분석된 내용 확인
+              </span>
+            </div>
+            <p id="nlResultSummary" class="text-xs text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200 leading-relaxed"></p>
+            <button id="applyNlSpendBtn" class="w-full py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition">
+              확인 및 잔액 차감 반영
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab 3: AI Advisor -->
+        <div id="aiTabAdvisorSection" class="hidden space-y-3">
+          <p class="text-slate-600 leading-relaxed">
+            현재 식당별 이월 잔액과 남은 식수를 종합 분석하여, <strong>월 20식 충전 최적 배분안</strong> 및 <strong>오늘의 점심 메뉴</strong>를 추천해 드립니다.
+          </p>
+
+          <div class="grid grid-cols-2 gap-2">
+            <button id="askQuotaDistributionBtn" class="py-2.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold transition flex flex-col items-center gap-1 text-center">
+              <i class="fa-solid fa-chart-pie text-base text-indigo-600"></i>
+              <span>20식 최적 배분 추천</span>
+            </button>
+            <button id="askLunchRecommendationBtn" class="py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 font-bold transition flex flex-col items-center gap-1 text-center">
+              <i class="fa-solid fa-bowl-rice text-base text-amber-600"></i>
+              <span>오늘 점심 어디 갈까?</span>
+            </button>
+          </div>
+
+          <!-- Advisor Output Box -->
+          <div id="advisorOutputBox" class="hidden p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-800 flex items-center gap-1.5">
+                <i class="fa-solid fa-robot text-purple-600"></i> AI 분석 리포트
+              </span>
+              <button onclick="copyAdvisorText()" class="text-[10px] text-slate-500 hover:text-purple-600 flex items-center gap-1">
+                <i class="fa-regular fa-copy"></i> 복사
+              </button>
+            </div>
+            <div id="advisorOutputText" class="text-xs text-slate-700 bg-white p-3 rounded-lg border border-slate-200 whitespace-pre-wrap leading-relaxed"></div>
+          </div>
+        </div>
+
+        <!-- Shared Loading Indicator -->
+        <div id="aiLoadingIndicator" class="hidden py-6 text-center space-y-2">
+          <div class="inline-block animate-spin text-purple-600 text-2xl">
+            <i class="fa-solid fa-circle-notch"></i>
+          </div>
+          <p id="aiLoadingMessage" class="text-xs text-slate-600 font-medium">Gemini AI가 분석 중입니다...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 1: Spend Modal -->
+  <div id="spendModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-7 h-7 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center text-xs">
+            <i class="fa-solid fa-receipt"></i>
+          </span>
+          <h3 class="font-bold text-slate-900 text-base">식사 지출 기록</h3>
+        </div>
+        <button onclick="closeModal('spendModal')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      
+      <form id="spendForm" class="p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">식당 선택</label>
+          <select id="spendRestaurantSelect" required class="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"></select>
+          <p id="spendCurrentBalanceHint" class="text-[11px] text-sky-600 mt-1 font-medium">현재 잔액: 0원</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">지출 금액 (원)</label>
+          <div class="relative">
+            <input type="number" id="spendAmountInput" required min="1" placeholder="예: 9000" class="w-full text-sm pl-3 pr-8 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 font-semibold text-slate-800">
+            <span class="absolute right-3 top-2 text-xs text-slate-400 font-medium">원</span>
+          </div>
+          <div class="flex flex-wrap gap-1.5 mt-2">
+            <button type="button" onclick="setSpendAmount(8000)" class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700">8,000원</button>
+            <button type="button" onclick="setSpendAmount(9000)" class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700">9,000원 (1식)</button>
+            <button type="button" onclick="setSpendAmount(10000)" class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700">10,000원</button>
+            <button type="button" onclick="setSpendAmount(18000)" class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700">18,000원 (2식)</button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">메모 (선택사항)</label>
+          <input type="text" id="spendMemoInput" placeholder="예: 점심 제육덮밥" class="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500">
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeModal('spendModal')" class="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">취소</button>
+          <button type="submit" class="flex-1 py-2.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs transition">차감 저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: Add or Edit Restaurant Modal -->
+  <div id="restaurantModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <h3 id="restaurantModalTitle" class="font-bold text-slate-900 text-base">식당 추가</h3>
+        <button onclick="closeModal('restaurantModal')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="restaurantForm" class="p-5 space-y-4">
+        <input type="hidden" id="editRestaurantId">
+        
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">식당 이름</label>
+          <input type="text" id="restNameInput" required placeholder="예: 웰빙오리" class="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">이월 금액 (지난달 남은 금액)</label>
+          <div class="relative">
+            <input type="number" id="restCarryoverInput" min="0" value="0" class="w-full text-sm pl-3 pr-8 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500">
+            <span class="absolute right-3 top-2 text-xs text-slate-400 font-medium">원</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">월초에 지난달에서 넘어온 잔액입니다.</p>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-semibold text-slate-700">이번달 급량 수량 (식)</label>
+            <span id="modalRemainingQuotaLabel" class="text-[11px] text-sky-600 font-medium">남은 한도: 20개</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="adjustModalMeals(-1)" class="w-9 h-9 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-base">-</button>
+            <input type="number" id="restMealsInput" min="0" max="20" value="0" class="flex-1 text-center text-sm py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 font-bold">
+            <button type="button" onclick="adjustModalMeals(1)" class="w-9 h-9 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-base">+</button>
+          </div>
+          <p id="modalRechargePreview" class="text-[11px] text-sky-600 font-medium mt-1.5 text-right">충전액: 0원 (수량 × 9,000원)</p>
+        </div>
+
+        <div id="restSpentFieldWrapper" class="hidden">
+          <label class="block text-xs font-semibold text-slate-700 mb-1">이번달 누적 사용액 (원)</label>
+          <div class="relative">
+            <input type="number" id="restSpentInput" min="0" value="0" class="w-full text-sm pl-3 pr-8 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 text-rose-600 font-semibold">
+            <span class="absolute right-3 top-2 text-xs text-slate-400 font-medium">원</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">잘못 입력된 지출액이 있다면 올바른 금액으로 직접 수정할 수 있습니다.</p>
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeModal('restaurantModal')" class="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">취소</button>
+          <button type="submit" class="flex-1 py-2.5 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-xl shadow-xs transition">저장하기</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 3: History Modal -->
+  <div id="historyModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden max-h-[85vh] flex flex-col">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 id="historyModalTitle" class="font-bold text-slate-900 text-base">지출 내역</h3>
+          <p id="historyModalSubtitle" class="text-xs text-slate-500">식당별 사용 기록</p>
+        </div>
+        <button onclick="closeModal('historyModal')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div id="historyListContainer" class="p-5 overflow-y-auto space-y-2 flex-1"></div>
+      
+      <div class="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+        <button type="button" id="clearAllSpentBtn" class="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-100 rounded-xl transition flex items-center gap-1">
+          <i class="fa-solid fa-rotate-left text-xs"></i>
+          <span>사용액 전체 0원 초기화</span>
+        </button>
+        <button onclick="closeModal('historyModal')" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 4: Rollover Modal -->
+  <div id="rolloverModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden p-5 space-y-4">
+      <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center text-xl mx-auto">
+        <i class="fa-solid fa-calendar-check"></i>
+      </div>
+      <div class="text-center">
+        <h3 class="font-bold text-slate-900 text-base">다음 달로 정산 이월</h3>
+        <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+          현재 각 식당의 <strong class="text-slate-800">최종 잔액이 다음 달의 '이월' 금액</strong>으로 저장됩니다.<br>
+          이번 달의 <span class="text-sky-600 font-semibold">급량 수량</span>과 <span class="text-rose-600 font-semibold">사용액</span>은 0으로 초기화되어 새 달 충전을 시작할 수 있습니다.
+        </p>
+      </div>
+
+      <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
+        <div class="flex justify-between text-slate-600">
+          <span>다음 달로 넘어갈 총 잔액:</span>
+          <span id="rolloverTotalCarry" class="font-bold text-slate-900">0원</span>
+        </div>
+        <div class="flex justify-between text-slate-600">
+          <span>다음 달 명칭:</span>
+          <span id="nextMonthLabel" class="font-semibold text-sky-600">10월</span>
+        </div>
+      </div>
+
+      <div id="modalUndoRolloverBox" class="hidden p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs flex items-center justify-between">
+        <span class="text-amber-800">이전 달 백업 데이터가 있습니다.</span>
+        <button type="button" id="undoRolloverModalBtn" class="px-2.5 py-1 bg-white border border-amber-300 text-amber-800 font-bold rounded-lg hover:bg-amber-100 transition">
+          이전 달로 복원
+        </button>
+      </div>
+
+      <div class="flex gap-2 pt-2">
+        <button type="button" onclick="closeModal('rolloverModal')" class="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">취소</button>
+        <button type="button" id="confirmRolloverBtn" class="flex-1 py-2.5 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-xl transition">이월 확정하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 5: Settings & Backup Modal -->
+  <div id="settingsModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="font-bold text-slate-900 text-base">설정 및 데이터 백업</h3>
+        <button onclick="closeModal('settingsModal')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">현재 관리 월 이름</label>
+          <input type="text" id="settingMonthInput" placeholder="예: 9월" class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500">
+        </div>
+
+        <div class="pt-2 border-t border-slate-100 space-y-2">
+          <p class="font-semibold text-slate-700">데이터 백업 / 복원</p>
+          <div class="flex gap-2">
+            <button id="exportJsonBtn" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium transition flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-download"></i> 백업 다운로드
+            </button>
+            <label class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium transition flex items-center justify-center gap-1.5 cursor-pointer text-center">
+              <i class="fa-solid fa-upload"></i> 백업 파일 복원
+              <input type="file" id="importJsonInput" accept=".json" class="hidden">
+            </label>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100">
+          <p class="font-semibold text-slate-700 mb-1">엑셀 초기 데이터로 되돌리기</p>
+          <p class="text-[11px] text-slate-500 mb-2">9월 급량 엑셀 원본 데이터(광오지, 철원, 고공 등)로 재설정합니다.</p>
+          <button id="resetToDefaultBtn" class="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl font-semibold transition">
+            초기 엑셀 데이터로 초기화
+          </button>
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button onclick="saveSettings()" class="px-5 py-2.5 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-xl transition">저장 완료</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Edit Single Expense Modal -->
+  <div id="editExpenseModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-7 h-7 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center text-xs">
+            <i class="fa-solid fa-pen"></i>
+          </span>
+          <h3 id="editExpenseRestName" class="font-bold text-slate-900 text-base">지출 금액 수정</h3>
+        </div>
+        <button onclick="closeModal('editExpenseModal')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="editExpenseForm" class="p-5 space-y-4">
+        <input type="hidden" id="editExpenseRestId">
+        <input type="hidden" id="editExpenseItemId">
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">정정할 금액 (원)</label>
+          <div class="relative">
+            <input type="number" id="editExpenseAmountInput" required min="0" class="w-full text-sm pl-3 pr-8 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 font-semibold text-slate-800">
+            <span class="absolute right-3 top-2 text-xs text-slate-400 font-medium">원</span>
+          </div>
+          <div class="flex flex-wrap gap-1.5 mt-2">
+            <button type="button" onclick="setEditExpenseAmount(8000)" class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700">8,000원</button>
+            <button type="button" onclick="setEditExpenseAmount(9000)" class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700">9,000원 (1식)</button>
+            <button type="button" onclick="setEditExpenseAmount(10000)" class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700">10,000원</button>
+            <button type="button" onclick="setEditExpenseAmount(18000)" class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700">18,000원 (2식)</button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">메모 수정</label>
+          <input type="text" id="editExpenseMemoInput" placeholder="지출 내용 메모" class="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500">
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeModal('editExpenseModal')" class="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">취소</button>
+          <button type="submit" class="flex-1 py-2.5 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-xl shadow-xs transition">수정 저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 6: Safe Custom Confirmation Modal -->
+  <div id="customConfirmModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-sm rounded-2xl shadow-xl overflow-hidden p-5 space-y-4">
+      <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl mx-auto">
+        <i id="confirmModalIcon" class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <div class="text-center">
+        <h3 id="confirmModalTitle" class="font-bold text-slate-900 text-base">확인 필요</h3>
+        <p id="confirmModalMessage" class="text-xs text-slate-600 mt-2 whitespace-pre-line leading-relaxed"></p>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button type="button" id="confirmModalCancelBtn" class="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">취소</button>
+        <button type="button" id="confirmModalActionBtn" class="flex-1 py-2.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Toast Notification Box -->
+  <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-full shadow-lg text-xs font-medium flex items-center gap-2 transition-all duration-300 opacity-0 pointer-events-none translate-y-[-10px]">
+    <i id="toastIcon" class="fa-solid fa-check text-emerald-400"></i>
+    <span id="toastMsg">완료되었습니다.</span>
+  </div>
+
+  <script>
+    /* Meal Allowance Application Logic */
+    const MEAL_UNIT_PRICE = 9000;
+    const MAX_MONTHLY_MEALS = 20;
+
+    // Default Seed Data from User's Excel Screenshot
+    const INITIAL_RESTAURANTS = [
+      { id: '1', name: '광오지', carryover: 1000, mealCount: 0, spent: 0, history: [] },
+      { id: '2', name: '담소', carryover: 10800, mealCount: 2, spent: 0, history: [] },
+      { id: '3', name: '장순루', carryover: 31000, mealCount: 0, spent: 0, history: [] },
+      { id: '4', name: '철원', carryover: 81000, mealCount: 7, spent: 81000, history: [{ id: 'init-1', date: '2026-09-01 12:00', amount: 81000, memo: '기존 엑셀 사용액' }] },
+      { id: '5', name: '청학동냉면', carryover: 61000, mealCount: 0, spent: 0, history: [] },
+      { id: '6', name: '파리바게트', carryover: 41980, mealCount: 0, spent: 0, history: [] },
+      { id: '7', name: '정성 한줄', carryover: 18900, mealCount: 0, spent: 0, history: [] },
+      { id: '8', name: '웰빙오리', carryover: 99000, mealCount: 0, spent: 0, history: [] },
+      { id: '9', name: '고공', carryover: 0, mealCount: 11, spent: 0, history: [] }
+    ];
+
+    // App State
+    let appState = {
+      monthLabel: '8월',
+      restaurants: [],
+      activeView: 'card',
+      rolloverBackup: null,
+      deletedRestaurantBackup: null
+    };
+
+    // Gemini API Setup
+    const apiKey = "";
+    const GEMINI_MODEL = "gemini-3-flash-preview";
+
+    async function callGeminiGenerateContent(payload, retries = 3, delay = 1000) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+      for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!response.ok) {
+            if (response.status === 429 && attempt < retries - 1) {
+              await new Promise(res => setTimeout(res, delay * Math.pow(2, attempt)));
+              continue;
+            }
+            throw new Error(`Gemini API Error: ${response.status} ${response.statusText}`);
+          }
+          return await response.json();
+        } catch (err) {
+          if (attempt === retries - 1) throw err;
+          await new Promise(res => setTimeout(res, delay * Math.pow(2, attempt)));
+        }
+      }
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+          const base64Data = reader.result.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = error => reject(error);
+      });
+    }
+
+    let currentReceiptFile = null;
+    let pendingReceiptSpendData = null;
+    let pendingNlSpendData = null;
+
+    function switchAiTab(tabName) {
+      const receiptSec = document.getElementById('aiTabReceiptSection');
+      const nlSec = document.getElementById('aiTabNlSection');
+      const advisorSec = document.getElementById('aiTabAdvisorSection');
+
+      const receiptBtn = document.getElementById('aiTabReceiptBtn');
+      const nlBtn = document.getElementById('aiTabNlBtn');
+      const advisorBtn = document.getElementById('aiTabAdvisorBtn');
+
+      [receiptSec, nlSec, advisorSec].forEach(el => el.classList.add('hidden'));
+      [receiptBtn, nlBtn, advisorBtn].forEach(btn => {
+        btn.className = "flex-1 py-2.5 px-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition flex items-center justify-center gap-1.5";
+      });
+
+      if (tabName === 'receipt') {
+        receiptSec.classList.remove('hidden');
+        receiptBtn.className = "flex-1 py-2.5 px-3 border-b-2 border-purple-600 text-purple-700 bg-white font-bold transition flex items-center justify-center gap-1.5";
+      } else if (tabName === 'nl') {
+        nlSec.classList.remove('hidden');
+        nlBtn.className = "flex-1 py-2.5 px-3 border-b-2 border-purple-600 text-purple-700 bg-white font-bold transition flex items-center justify-center gap-1.5";
+      } else if (tabName === 'advisor') {
+        advisorSec.classList.remove('hidden');
+        advisorBtn.className = "flex-1 py-2.5 px-3 border-b-2 border-purple-600 text-purple-700 bg-white font-bold transition flex items-center justify-center gap-1.5";
+      }
+    }
+
+    function showAiLoading(msg = 'Gemini AI가 분석 중입니다...') {
+      document.getElementById('aiLoadingMessage').innerText = msg;
+      document.getElementById('aiLoadingIndicator').classList.remove('hidden');
+    }
+
+    function hideAiLoading() {
+      document.getElementById('aiLoadingIndicator').classList.add('hidden');
+    }
+
+    const receiptFileInput = document.getElementById('receiptFileInput');
+    const analyzeReceiptBtn = document.getElementById('analyzeReceiptBtn');
+
+    receiptFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      currentReceiptFile = file;
+
+      document.getElementById('receiptFileName').innerText = file.name;
+      document.getElementById('receiptFileSize').innerText = `${Math.round(file.size / 1024)} KB`;
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        document.getElementById('receiptPreviewImg').src = ev.target.result;
+        document.getElementById('receiptPreviewBox').classList.remove('hidden');
+        document.getElementById('receiptUploadPlaceholder').classList.add('hidden');
+        analyzeReceiptBtn.disabled = false;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    analyzeReceiptBtn.addEventListener('click', async () => {
+      if (!currentReceiptFile) return;
+
+      showAiLoading('영수증 이미지에서 식당과 결제 금액을 판독 중입니다...');
+      document.getElementById('receiptResultBox').classList.add('hidden');
+
+      try {
+        const base64Data = await fileToBase64(currentReceiptFile);
+        const registeredRestaurants = appState.restaurants.map(r => r.name).join(', ');
+
+        const prompt = `사용자가 업로드한 식사 영수증 또는 모바일 결제 캡처 사진입니다.
+현재 앱에 등록된 식당 목록: [${registeredRestaurants}].
+영수증 이미지에서 아래 정보를 분석하여 정확한 JSON 형식으로 응답해주세요:
+1. restaurantName: 영수증에 적힌 상호명 또는 등록된 식당 중 가장 근접한 식당 이름 (등록 목록에 없으면 영수증 상호명 그대로)
+2. amount: 결제된 총 금액 (숫자만, 원화 단위)
+3. memo: 결제한 메뉴명이나 품목 요약 (예: 순대국, 샌드위치 등, 식별 불가 시 '영수증 지출')
+4. isRegisteredMatch: 등록된 식당 목록에 존재하는지 여부 (true/false)`;
+
+        const payload = {
+          contents: [{
+            role: "user",
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  mimeType: currentReceiptFile.type || "image/jpeg",
+                  data: base64Data
+                }
+              }
+            ]
+          }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                restaurantName: { type: "STRING" },
+                amount: { type: "NUMBER" },
+                memo: { type: "STRING" },
+                isRegisteredMatch: { type: "BOOLEAN" }
+              },
+              required: ["restaurantName", "amount", "memo", "isRegisteredMatch"]
+            }
+          }
+        };
+
+        const result = await callGeminiGenerateContent(payload);
+        const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!jsonText) throw new Error("인식 결과가 올바르지 않습니다.");
+
+        const parsed = JSON.parse(jsonText);
+        pendingReceiptSpendData = parsed;
+
+        document.getElementById('parsedReceiptRest').innerText = parsed.restaurantName || '식당 미확인';
+        document.getElementById('parsedReceiptAmount').innerText = formatWon(parsed.amount || 0);
+        document.getElementById('parsedReceiptMemo').innerText = parsed.memo || '식사 결제';
+        document.getElementById('receiptResultBox').classList.remove('hidden');
+
+        showToast('영수증 판독이 완료되었습니다.');
+      } catch (err) {
+        console.error(err);
+        showToast('영수증 분석 중 오류가 발생했습니다. 선명한 사진으로 다시 시도해주세요.', true);
+      } finally {
+        hideAiLoading();
+      }
+    });
+
+    document.getElementById('applyReceiptSpendBtn').addEventListener('click', () => {
+      if (!pendingReceiptSpendData) return;
+
+      const { restaurantName, amount, memo } = pendingReceiptSpendData;
+      let target = appState.restaurants.find(r => 
+        r.name.trim().toLowerCase() === (restaurantName || '').trim().toLowerCase() ||
+        (restaurantName && (r.name.includes(restaurantName) || restaurantName.includes(r.name)))
+      );
+
+      if (!target) {
+        target = {
+          id: Date.now().toString(),
+          name: restaurantName || '신규 식당',
+          carryover: 0,
+          mealCount: 0,
+          spent: 0,
+          history: []
+        };
+        appState.restaurants.push(target);
+        showToast(`'${target.name}' 식당이 새로 자동 등록되었습니다.`);
+      }
+
+      target.spent = (target.spent || 0) + amount;
+      if (!target.history) target.history = [];
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')} ${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`;
+
+      target.history.unshift({
+        id: Date.now().toString(),
+        date: dateStr,
+        amount: amount,
+        memo: `[AI영수증] ${memo || '식사 지출'}`
+      });
+
+      saveData();
+      renderApp();
+      closeModal('aiModal');
+      showToast(`${target.name}에서 ${formatWon(amount)} 차감 완료!`);
+    });
+
+    function setNlExample(text) {
+      document.getElementById('nlInputText').value = text;
+    }
+
+    document.getElementById('parseNlSpendBtn').addEventListener('click', async () => {
+      const userText = document.getElementById('nlInputText').value.trim();
+      if (!userText) {
+        showToast('지출 내용을 입력해주세요.', true);
+        return;
+      }
+
+      showAiLoading('자연어 지출 문장을 해석하는 중입니다...');
+      document.getElementById('nlResultBox').classList.add('hidden');
+
+      try {
+        const registeredList = appState.restaurants.map(r => r.name).join(', ');
+        const prompt = `사용자가 입력한 급량비 지출 메모: "${userText}"
+현재 등록된 식당 목록: [${registeredList}]
+위 문장에서 결제한 식당명(가장 유사한 등록 식당명), 결제 금액(숫자), 메뉴 또는 메모를 추출하여 JSON으로 반환해주세요.`;
+
+        const payload = {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                restaurantName: { type: "STRING" },
+                amount: { type: "NUMBER" },
+                memo: { type: "STRING" }
+              },
+              required: ["restaurantName", "amount", "memo"]
+            }
+          }
+        };
+
+        const result = await callGeminiGenerateContent(payload);
+        const jsonStr = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        const parsed = JSON.parse(jsonStr);
+
+        pendingNlSpendData = parsed;
+
+        document.getElementById('nlResultSummary').innerHTML = `
+          <strong>식당:</strong> <span class="text-indigo-600 font-bold">${parsed.restaurantName}</span><br>
+          <strong>금액:</strong> <span class="text-rose-600 font-bold">${formatWon(parsed.amount)}</span><br>
+          <strong>메모:</strong> <span>${parsed.memo || '식사 지출'}</span>
+        `;
+        document.getElementById('nlResultBox').classList.remove('hidden');
+        showToast('내역 분석 완료! 확인 후 차감하세요.');
+      } catch (err) {
+        console.error(err);
+        showToast('분석에 실패했습니다. 식당명과 금액을 명확히 입력해주세요.', true);
+      } finally {
+        hideAiLoading();
+      }
+    });
+
+    document.getElementById('applyNlSpendBtn').addEventListener('click', () => {
+      if (!pendingNlSpendData) return;
+      const { restaurantName, amount, memo } = pendingNlSpendData;
+
+      let target = appState.restaurants.find(r => 
+        r.name.trim().toLowerCase() === (restaurantName || '').trim().toLowerCase() ||
+        (restaurantName && (r.name.includes(restaurantName) || restaurantName.includes(r.name)))
+      );
+
+      if (!target) {
+        target = {
+          id: Date.now().toString(),
+          name: restaurantName || '신규 식당',
+          carryover: 0,
+          mealCount: 0,
+          spent: 0,
+          history: []
+        };
+        appState.restaurants.push(target);
+      }
+
+      target.spent = (target.spent || 0) + amount;
+      if (!target.history) target.history = [];
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')} ${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`;
+
+      target.history.unshift({
+        id: Date.now().toString(),
+        date: dateStr,
+        amount: amount,
+        memo: `[AI기록] ${memo || '식사 지출'}`
+      });
+
+      saveData();
+      renderApp();
+      closeModal('aiModal');
+      showToast(`${target.name}에 ${formatWon(amount)} 차감 완료!`);
+      document.getElementById('nlInputText').value = '';
+    });
+
+    document.getElementById('askQuotaDistributionBtn').addEventListener('click', async () => {
+      showAiLoading('식당별 잔액과 소비 패턴을 고려하여 20식 최적 배분안을 작성 중입니다...');
+      document.getElementById('advisorOutputBox').classList.add('hidden');
+
+      try {
+        const statsSummary = appState.restaurants.map(r => ({
+          식당명: r.name,
+          이월금: r.carryover,
+          현재급량수: r.mealCount,
+          현재잔액: calculateBalance(r),
+          사용누적: r.spent
+        }));
+
+        const prompt = `당신은 스마트한 직장인 급량비 재정 컨설턴트입니다.
+규칙:
+- 1식 단가: 9,000원
+- 한 달 총 충전 가능한 급량 수는 정확히 20개 (180,000원)입니다.
+- 잔액 = 이월 + (급량수 * 9,000) - 사용액.
+- 이미 이월 잔액이 충분히 많은 식당(예: 60,000원 이상)에는 급량을 적게 배분하거나 0개로 두고, 잔액이 부족하거나 자주 이용하는 식당에 급량을 우선 배분해야 잔액이 불필요하게 묶이지 않습니다.
+
+현재 식당별 현황 데이터:
+${JSON.stringify(statsSummary, null, 2)}
+
+위 데이터를 바탕으로:
+1. 총 20식을 어떤 식당에 각각 몇 개씩 배분(수량의 합계는 반드시 20)하면 가장 효율적인지 표/목록으로 명확하게 제시해주세요.
+2. 그렇게 배분한 전략적 이유와 잔액 관리 팁을 친절하고 간결한 한국어로 설명해주세요.`;
+
+        const payload = {
+          contents: [{ parts: [{ text: prompt }] }],
+          systemInstruction: {
+            parts: [{ text: "직장인 급량비(식대) 관리 전문가로서 군더더기 없이 실용적이고 보기 편한 마크다운 스타일 텍스트로 권장안을 작성하세요." }]
+          }
+        };
+
+        const result = await callGeminiGenerateContent(payload);
+        const reply = result.candidates?.[0]?.content?.parts?.[0]?.text || "추천 결과를 생성하지 못했습니다.";
+
+        document.getElementById('advisorOutputText').innerText = reply;
+        document.getElementById('advisorOutputBox').classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+        showToast('AI 추천 생성 중 오류가 발생했습니다.', true);
+      } finally {
+        hideAiLoading();
+      }
+    });
+
+    document.getElementById('askLunchRecommendationBtn').addEventListener('click', async () => {
+      showAiLoading('오늘 가기 좋은 최적의 식당을 찾는 중입니다...');
+      document.getElementById('advisorOutputBox').classList.add('hidden');
+
+      try {
+        const statsSummary = appState.restaurants.map(r => ({
+          식당명: r.name,
+          이용가능잔액: calculateBalance(r),
+          최근지출건수: r.history ? r.history.length : 0
+        }));
+
+        const prompt = `사용자의 현재 식당별 잔액 현황:
+${JSON.stringify(statsSummary, null, 2)}
+
+위 식당들 중에서 오늘 점심 식사로 가기 가장 적절한 식당 2~3곳을 선정하고, 왜 그 식당을 추천하는지 직장인 동료처럼 센스 있게 추천해주세요. 1인 9,000원 기준으로 가성비 있게 이용하는 멘트도 함께 포함해주세요.`;
+
+        const payload = {
+          contents: [{ parts: [{ text: prompt }] }]
+        };
+
+        const result = await callGeminiGenerateContent(payload);
+        const reply = result.candidates?.[0]?.content?.parts?.[0]?.text || "추천 결과를 생성하지 못했습니다.";
+
+        document.getElementById('advisorOutputText').innerText = reply;
+        document.getElementById('advisorOutputBox').classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+        showToast('점심 추천 생성 중 오류가 발생했습니다.', true);
+      } finally {
+        hideAiLoading();
+      }
+    });
+
+    function copyAdvisorText() {
+      const text = document.getElementById('advisorOutputText').innerText;
+      if (!text) return;
+      const el = document.createElement('textarea');
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      showToast('AI 리포트가 클립보드에 복사되었습니다.');
+    }
+
+    document.getElementById('openAiModalBtn').addEventListener('click', () => {
+      openModal('aiModal');
+    });
+
+    function formatWon(num) {
+      return (num || 0).toLocaleString('ko-KR') + '원';
+    }
+
+    function formatNumber(num) {
+      return (num || 0).toLocaleString('ko-KR');
+    }
+
+    function loadData() {
+      try {
+        const saved = localStorage.getItem('meal_allowance_app_data_v1');
+        if (saved) {
+          appState = JSON.parse(saved);
+          // 8월 기본값 반영 (이전 저장 데이터가 9월 기본값이면서 이월 기록이 없는 경우 8월로 자동 보정)
+          if (!appState.rolloverBackup && appState.monthLabel === '9월') {
+            appState.monthLabel = '8월';
+          }
+        } else {
+          appState.restaurants = JSON.parse(JSON.stringify(INITIAL_RESTAURANTS));
+          appState.monthLabel = '8월';
+          saveData();
+        }
+      } catch (e) {
+        console.error('Failed to load data', e);
+        appState.restaurants = JSON.parse(JSON.stringify(INITIAL_RESTAURANTS));
+        appState.monthLabel = '8월';
+      }
+    }
+
+    function saveData() {
+      try {
+        localStorage.setItem('meal_allowance_app_data_v1', JSON.stringify(appState));
+      } catch (e) {
+        console.error('Failed to save data', e);
+      }
+    }
+
+    let toastTimer = null;
+    function showToast(message, isError = false) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      const toastIcon = document.getElementById('toastIcon');
+
+      toastMsg.innerText = message;
+      if (isError) {
+        toastIcon.className = 'fa-solid fa-circle-exclamation text-rose-400';
+      } else {
+        toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
+      }
+
+      toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-[-10px]');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-[-10px]');
+      }, 2500);
+    }
+
+    function calculateBalance(item) {
+      const recharge = (item.mealCount || 0) * MEAL_UNIT_PRICE;
+      const carry = item.carryover || 0;
+      const spent = item.spent || 0;
+      return carry + recharge - spent;
+    }
+
+    function getTotalAssignedMeals(excludeId = null) {
+      return appState.restaurants.reduce((sum, r) => {
+        if (excludeId && r.id === excludeId) return sum;
+        return sum + (Number(r.mealCount) || 0);
+      }, 0);
+    }
+
+    function renderApp() {
+      document.getElementById('currentMonthBadge').innerText = appState.monthLabel + ' 급량';
+      document.getElementById('settingMonthInput').value = appState.monthLabel;
+
+      // Undo Delete Button Toggle
+      const undoDeleteBtn = document.getElementById('undoDeleteHeaderBtn');
+      if (undoDeleteBtn) {
+        if (appState.deletedRestaurantBackup && appState.deletedRestaurantBackup.restaurant) {
+          undoDeleteBtn.classList.remove('hidden');
+          undoDeleteBtn.title = `'${appState.deletedRestaurantBackup.restaurant.name}' 식당 복구`;
+        } else {
+          undoDeleteBtn.classList.add('hidden');
+        }
+      }
+
+      const undoHeaderBtn = document.getElementById('undoRolloverHeaderBtn');
+      const modalUndoBox = document.getElementById('modalUndoRolloverBox');
+      if (appState.rolloverBackup) {
+        undoHeaderBtn.classList.remove('hidden');
+        if (modalUndoBox) modalUndoBox.classList.remove('hidden');
+        undoHeaderBtn.title = `이전(${appState.rolloverBackup.monthLabel}) 상태로 복원`;
+      } else {
+        undoHeaderBtn.classList.add('hidden');
+        if (modalUndoBox) modalUndoBox.classList.add('hidden');
+      }
+
+      const totalCarry = appState.restaurants.reduce((sum, r) => sum + (Number(r.carryover) || 0), 0);
+      const totalMeals = getTotalAssignedMeals();
+      const totalRecharge = totalMeals * MEAL_UNIT_PRICE;
+      const totalSpent = appState.restaurants.reduce((sum, r) => sum + (Number(r.spent) || 0), 0);
+      const totalBalance = appState.restaurants.reduce((sum, r) => sum + calculateBalance(r), 0);
+      const totalExpenseLogs = appState.restaurants.reduce((sum, r) => sum + (r.history ? r.history.length : 0), 0);
+
+      document.getElementById('statTotalBalance').innerText = formatWon(totalBalance);
+      document.getElementById('statTotalCarried').innerText = formatWon(totalCarry);
+      document.getElementById('statUsedCount').innerText = totalMeals;
+      document.getElementById('statTotalRecharge').innerText = formatWon(totalRecharge);
+      document.getElementById('statTotalSpent').innerText = formatWon(totalSpent);
+      document.getElementById('statSpentCount').innerText = `총 ${totalExpenseLogs}건 지출`;
+
+      const percent = Math.min(100, Math.round((totalMeals / MAX_MONTHLY_MEALS) * 100));
+      const progressBar = document.getElementById('quotaProgressBar');
+      progressBar.style.width = percent + '%';
+      if (totalMeals > MAX_MONTHLY_MEALS) {
+        progressBar.className = 'bg-rose-500 h-full rounded-full transition-all duration-300';
+      } else if (totalMeals === MAX_MONTHLY_MEALS) {
+        progressBar.className = 'bg-emerald-500 h-full rounded-full transition-all duration-300';
+      } else {
+        progressBar.className = 'bg-sky-500 h-full rounded-full transition-all duration-300';
+      }
+
+      document.getElementById('quotaProgressLabel').innerText = `${totalMeals} / ${MAX_MONTHLY_MEALS}개`;
+      const remainMeals = MAX_MONTHLY_MEALS - totalMeals;
+      if (remainMeals > 0) {
+        document.getElementById('quotaRemainingText').innerText = `${remainMeals}개 더 충전 가능`;
+        document.getElementById('quotaRemainingText').className = 'text-[11px] text-sky-600 font-medium mt-1';
+      } else if (remainMeals === 0) {
+        document.getElementById('quotaRemainingText').innerText = `한도 20식 모두 배정 완료`;
+        document.getElementById('quotaRemainingText').className = 'text-[11px] text-emerald-600 font-medium mt-1';
+      } else {
+        document.getElementById('quotaRemainingText').innerText = `한도 ${Math.abs(remainMeals)}식 초과!`;
+        document.getElementById('quotaRemainingText').className = 'text-[11px] text-rose-600 font-bold mt-1';
+      }
+
+      const query = (document.getElementById('searchRestaurant').value || '').trim().toLowerCase();
+      const filteredRestaurants = appState.restaurants.filter(r => r.name.toLowerCase().includes(query));
+
+      document.getElementById('restaurantCountBadge').innerText = appState.restaurants.length;
+
+      const emptyEl = document.getElementById('emptyState');
+      if (filteredRestaurants.length === 0) {
+        emptyEl.classList.remove('hidden');
+      } else {
+        emptyEl.classList.add('hidden');
+      }
+
+      renderCards(filteredRestaurants);
+      renderTable(filteredRestaurants, totalCarry, totalMeals, totalRecharge, totalSpent, totalBalance);
+      populateSpendModalOptions();
+    }
+
+    function renderCards(restaurants) {
+      const container = document.getElementById('cardViewContainer');
+      container.innerHTML = '';
+
+      restaurants.forEach(rest => {
+        const recharge = (rest.mealCount || 0) * MEAL_UNIT_PRICE;
+        const balance = calculateBalance(rest);
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-2xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col justify-between relative';
+
+        const hasHistory = rest.history && rest.history.length > 0;
+        const lastExpense = hasHistory ? rest.history[0] : null;
+
+        // Construct Recent Expense Action Block cleanly without nested template syntax
+        let recentExpenseHtml = '';
+        if (lastExpense) {
+          const safeMemo = lastExpense.memo || '지출';
+          recentExpenseHtml = `
+            <div class="p-2 rounded-xl bg-amber-50/80 border border-amber-200/80 flex items-center justify-between gap-1 text-[11px]">
+              <div class="min-w-0 flex-1">
+                <span class="text-amber-800 font-semibold block truncate">최근: -${formatNumber(lastExpense.amount)}원 (${safeMemo})</span>
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                <button onclick="undoAndReenterExpense('${rest.id}')" title="방금 금액을 되돌리고 다시 적기" class="px-2 py-1 rounded-lg bg-white hover:bg-amber-100 text-amber-800 font-bold border border-amber-300 transition active:scale-95">
+                  <i class="fa-solid fa-pencil text-[10px]"></i> 다시 쓰기
+                </button>
+                <button onclick="undoLastExpense('${rest.id}')" title="방금 사용한 금액 원터치 취소" class="px-2 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold transition active:scale-95">
+                  <i class="fa-solid fa-rotate-left text-[10px]"></i> 되돌리기
+                </button>
+              </div>
+            </div>
+          `;
+        } else {
+          recentExpenseHtml = `
+            <button onclick="showRestaurantHistory('${rest.id}')" class="w-full py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium text-xs transition flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-clock-rotate-left text-xs text-slate-400"></i>
+              <span>지출 내역 보기</span>
+            </button>
+          `;
+        }
+
+        let editSpentBtnHtml = '';
+        if (rest.spent > 0) {
+          editSpentBtnHtml = `
+            <button onclick="showRestaurantHistory('${rest.id}')" title="사용 내역 건별 수정" class="text-[10px] text-slate-400 hover:text-sky-600 underline">
+              (내역수정)
+            </button>
+          `;
+        }
+
+        const rechargeText = recharge > 0 ? ('+' + formatNumber(recharge) + '원') : '0원';
+        const spentText = rest.spent > 0 ? ('-' + formatWon(rest.spent)) : '0원';
+        const spentClass = rest.spent > 0 ? 'text-rose-600' : 'text-slate-400';
+        const balanceClass = balance < 0 ? 'text-rose-600' : 'text-slate-900';
+        const balanceCardClass = balance < 0 ? 'bg-rose-50 border border-rose-200' : 'bg-gradient-to-r from-sky-50/80 to-blue-50/80 border border-sky-100';
+        const badgeClass = balance > 0 ? 'bg-sky-100 text-sky-700 font-bold' : 'bg-rose-100 text-rose-700 font-bold';
+        const badgeLabel = balance > 0 ? '이용 가능' : '잔액 부족';
+
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="w-3 h-3 rounded-full ${balance > 0 ? 'bg-emerald-500' : 'bg-slate-300'}"></span>
+                <h3 class="font-bold text-slate-900 text-base sm:text-lg truncate">${rest.name}</h3>
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                <button onclick="openEditRestaurant('${rest.id}')" title="식당 정보 및 지출 수정" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition">
+                  <i class="fa-solid fa-pen text-xs"></i>
+                </button>
+                <button onclick="deleteRestaurant('${rest.id}')" title="식당 삭제" class="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition">
+                  <i class="fa-solid fa-trash text-xs"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="my-3 p-3.5 rounded-2xl ${balanceCardClass}">
+              <div class="flex items-baseline justify-between">
+                <span class="text-xs font-semibold text-slate-500">현재 남은 잔액</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full ${badgeClass}">
+                  ${badgeLabel}
+                </span>
+              </div>
+              <div class="text-2xl sm:text-3xl font-black mt-1 tracking-tight ${balanceClass}">
+                ${formatWon(balance)}
+              </div>
+            </div>
+
+            <div class="space-y-1.5 mb-3">
+              <button onclick="quickSpendForRestaurant('${rest.id}')" class="w-full py-2.5 px-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 active:scale-95">
+                <i class="fa-solid fa-minus text-xs"></i>
+                <span>지출 입력하기</span>
+              </button>
+              ${recentExpenseHtml}
+            </div>
+
+            <div class="space-y-1.5 text-xs text-slate-600 pt-2 border-t border-slate-100">
+              <div class="flex justify-between items-center">
+                <span class="text-slate-500">지난달 이월</span>
+                <span class="font-medium text-slate-700">${formatWon(rest.carryover || 0)}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-slate-500">이번달 충전 (${rest.mealCount || 0}식)</span>
+                <div class="flex items-center gap-1.5">
+                  <button onclick="changeMealCount('${rest.id}', -1)" class="w-5 h-5 rounded-md bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold flex items-center justify-center text-xs">-</button>
+                  <span class="font-bold text-sky-600 w-12 text-right">${rechargeText}</span>
+                  <button onclick="changeMealCount('${rest.id}', 1)" class="w-5 h-5 rounded-md bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold flex items-center justify-center text-xs">+</button>
+                </div>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-slate-500">이번달 총 사용액</span>
+                <div class="flex items-center gap-1">
+                  <span class="font-bold ${spentClass}">
+                    ${spentText}
+                  </span>
+                  ${editSpentBtnHtml}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-3 mt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+            <button onclick="showRestaurantHistory('${rest.id}')" class="text-slate-500 hover:text-sky-600 font-medium flex items-center gap-1">
+              <i class="fa-solid fa-list-check text-slate-400"></i>
+              <span>지출 기록 (${hasHistory ? rest.history.length : 0}건)</span>
+            </button>
+            <button onclick="openEditRestaurant('${rest.id}')" class="text-[11px] text-sky-600 font-semibold hover:underline">
+              식당 정보 수정
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function renderTable(restaurants, totalCarry, totalMeals, totalRecharge, totalSpent, totalBalance) {
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+
+      restaurants.forEach(rest => {
+        const recharge = (rest.mealCount || 0) * MEAL_UNIT_PRICE;
+        const balance = calculateBalance(rest);
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition border-b border-slate-100';
+
+        let badgeHtml = '';
+        if (rest.history && rest.history.length > 0) {
+          badgeHtml = `<button onclick="showRestaurantHistory('${rest.id}')" class="text-[9px] px-1.5 py-0.2 rounded bg-sky-100 text-sky-700 font-bold">${rest.history.length}건</button>`;
+        }
+
+        tr.innerHTML = `
+          <td class="py-3 px-3 font-semibold text-slate-800 flex items-center gap-1.5">
+            ${rest.name}
+            ${badgeHtml}
+          </td>
+          <td class="py-3 px-3 text-right text-slate-600">${formatNumber(rest.carryover)}</td>
+          <td class="py-3 px-3 text-center">
+            <div class="inline-flex items-center gap-1">
+              <button onclick="changeMealCount('${rest.id}', -1)" class="w-4 h-4 rounded bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold flex items-center justify-center text-[10px]">-</button>
+              <span class="font-bold text-sky-600 w-5 text-center">${rest.mealCount}</span>
+              <button onclick="changeMealCount('${rest.id}', 1)" class="w-4 h-4 rounded bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold flex items-center justify-center text-[10px]">+</button>
+            </div>
+          </td>
+          <td class="py-3 px-3 text-right text-sky-600 font-medium">${recharge > 0 ? formatNumber(recharge) : '-'}</td>
+          <td class="py-3 px-3 text-right text-rose-500 font-medium">${rest.spent > 0 ? formatNumber(rest.spent) : '-'}</td>
+          <td class="py-3 px-3 text-right font-extrabold ${balance < 0 ? 'text-rose-600' : 'text-slate-900'}">${formatNumber(balance)}</td>
+          <td class="py-3 px-3 text-center">
+            <div class="inline-flex items-center gap-1">
+              <button onclick="quickSpendForRestaurant('${rest.id}')" title="지출 입력" class="w-6 h-6 rounded bg-rose-50 hover:bg-rose-100 text-rose-600 text-[10px]">
+                <i class="fa-solid fa-minus"></i>
+              </button>
+              <button onclick="openEditRestaurant('${rest.id}')" title="수정" class="w-6 h-6 rounded hover:bg-slate-100 text-slate-500 text-[10px]">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button onclick="deleteRestaurant('${rest.id}')" title="삭제" class="w-6 h-6 rounded hover:bg-slate-100 text-slate-500 hover:text-rose-600 text-[10px]">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('tableFooterCarry').innerText = formatNumber(totalCarry);
+      document.getElementById('tableFooterCount').innerText = `${totalMeals} / ${MAX_MONTHLY_MEALS}`;
+      document.getElementById('tableFooterRecharge').innerText = formatNumber(totalRecharge);
+      document.getElementById('tableFooterSpent').innerText = formatNumber(totalSpent);
+      document.getElementById('tableFooterBalance').innerText = formatWon(totalBalance);
+    }
+
+    function quickSpendForRestaurant(id) {
+      const select = document.getElementById('spendRestaurantSelect');
+      select.value = id;
+      updateSpendBalanceHint();
+      openModal('spendModal');
+      document.getElementById('spendAmountInput').focus();
+    }
+
+    function setSpendAmount(val) {
+      document.getElementById('spendAmountInput').value = val;
+    }
+
+    function updateSpendBalanceHint() {
+      const select = document.getElementById('spendRestaurantSelect');
+      const selectedId = select.value;
+      const target = appState.restaurants.find(r => r.id === selectedId);
+      const hint = document.getElementById('spendCurrentBalanceHint');
+      if (target) {
+        const bal = calculateBalance(target);
+        hint.innerText = `현재 잔액: ${formatWon(bal)}`;
+        hint.className = bal < 0 ? 'text-[11px] text-rose-600 font-bold mt-1' : 'text-[11px] text-sky-600 font-medium mt-1';
+      } else {
+        hint.innerText = '';
+      }
+    }
+
+    function populateSpendModalOptions() {
+      const select = document.getElementById('spendRestaurantSelect');
+      select.innerHTML = '';
+      appState.restaurants.forEach(rest => {
+        const opt = document.createElement('option');
+        opt.value = rest.id;
+        opt.innerText = `${rest.name} (잔액: ${formatNumber(calculateBalance(rest))}원)`;
+        select.appendChild(opt);
+      });
+      updateSpendBalanceHint();
+    }
+
+    function openModal(modalId) {
+      document.getElementById(modalId).classList.remove('hidden');
+    }
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.add('hidden');
+    }
+
+    function changeMealCount(id, delta) {
+      const target = appState.restaurants.find(r => r.id === id);
+      if (!target) return;
+
+      const currentTotal = getTotalAssignedMeals();
+      const newCount = (target.mealCount || 0) + delta;
+
+      if (newCount < 0) {
+        showToast('급량 수는 0 이상이어야 합니다.', true);
+        return;
+      }
+
+      if (delta > 0 && currentTotal + 1 > MAX_MONTHLY_MEALS) {
+        showToast(`한 달 최대 급량 수(${MAX_MONTHLY_MEALS}개)를 초과할 수 없습니다.`, true);
+        return;
+      }
+
+      target.mealCount = newCount;
+      saveData();
+      renderApp();
+      showToast(`${target.name} 급량 ${newCount}개로 변경`);
+    }
+
+    function adjustModalMeals(delta) {
+      const input = document.getElementById('restMealsInput');
+      const currentVal = parseInt(input.value || 0, 10);
+      const newVal = Math.max(0, currentVal + delta);
+
+      const editId = document.getElementById('editRestaurantId').value;
+      const otherMeals = getTotalAssignedMeals(editId);
+
+      if (otherMeals + newVal > MAX_MONTHLY_MEALS) {
+        showToast(`한 달 총 급량 수는 최대 ${MAX_MONTHLY_MEALS}개까지 가능합니다.`, true);
+        return;
+      }
+
+      input.value = newVal;
+      updateModalMealPreview();
+    }
+
+    function updateModalMealPreview() {
+      const input = document.getElementById('restMealsInput');
+      const count = parseInt(input.value || 0, 10);
+      const cost = count * MEAL_UNIT_PRICE;
+      document.getElementById('modalRechargePreview').innerText = `충전액: ${formatNumber(cost)}원 (${count} × 9,000원)`;
+
+      const editId = document.getElementById('editRestaurantId').value;
+      const otherMeals = getTotalAssignedMeals(editId);
+      const remainingQuota = MAX_MONTHLY_MEALS - otherMeals;
+      document.getElementById('modalRemainingQuotaLabel').innerText = `남은 배분 가능: ${Math.max(0, remainingQuota)}개`;
+    }
+
+    document.getElementById('restMealsInput').addEventListener('input', updateModalMealPreview);
+
+    document.getElementById('openAddRestaurantBtn').addEventListener('click', () => {
+      document.getElementById('restaurantModalTitle').innerText = '식당 추가';
+      document.getElementById('editRestaurantId').value = '';
+      document.getElementById('restNameInput').value = '';
+      document.getElementById('restCarryoverInput').value = 0;
+      document.getElementById('restMealsInput').value = 0;
+      document.getElementById('restSpentFieldWrapper').classList.add('hidden');
+      updateModalMealPreview();
+      openModal('restaurantModal');
+      document.getElementById('restNameInput').focus();
+    });
+
+    function openEditRestaurant(id) {
+      const rest = appState.restaurants.find(r => r.id === id);
+      if (!rest) return;
+
+      document.getElementById('restaurantModalTitle').innerText = `'${rest.name}' 정보 수정`;
+      document.getElementById('editRestaurantId').value = rest.id;
+      document.getElementById('restNameInput').value = rest.name;
+      document.getElementById('restCarryoverInput').value = rest.carryover || 0;
+      document.getElementById('restMealsInput').value = rest.mealCount || 0;
+      
+      document.getElementById('restSpentFieldWrapper').classList.remove('hidden');
+      document.getElementById('restSpentInput').value = rest.spent || 0;
+
+      updateModalMealPreview();
+      openModal('restaurantModal');
+    }
+
+    let customConfirmCallback = null;
+
+    function showCustomConfirm(options) {
+      const opts = options || {};
+      const title = opts.title || '확인';
+      const message = opts.message || '';
+      const icon = opts.icon || 'fa-triangle-exclamation';
+      const confirmText = opts.confirmText || '확인';
+      const actionClass = opts.actionClass || 'bg-rose-600 hover:bg-rose-700';
+      const onConfirm = opts.onConfirm;
+
+      document.getElementById('confirmModalTitle').innerText = title;
+      document.getElementById('confirmModalMessage').innerText = message;
+      document.getElementById('confirmModalIcon').className = `fa-solid ${icon}`;
+      
+      const actionBtn = document.getElementById('confirmModalActionBtn');
+      actionBtn.innerText = confirmText;
+      actionBtn.className = `flex-1 py-2.5 text-xs font-semibold text-white rounded-xl transition ${actionClass}`;
+
+      customConfirmCallback = onConfirm;
+      openModal('customConfirmModal');
+    }
+
+    document.getElementById('confirmModalActionBtn').addEventListener('click', () => {
+      if (typeof customConfirmCallback === 'function') {
+        customConfirmCallback();
+      }
+      closeModal('customConfirmModal');
+    });
+
+    document.getElementById('confirmModalCancelBtn').addEventListener('click', () => {
+      customConfirmCallback = null;
+      closeModal('customConfirmModal');
+    });
+
+    function deleteRestaurant(id) {
+      const rest = appState.restaurants.find(r => r.id === id);
+      if (!rest) return;
+
+      showCustomConfirm({
+        title: `'${rest.name}' 식당 삭제`,
+        message: `'${rest.name}'을(를) 삭제하시겠습니까?\n\n※ 삭제 후에도 상단의 [삭제 취소] 버튼으로 언제든 복구할 수 있습니다.`,
+        confirmText: '삭제하기',
+        actionClass: 'bg-rose-600 hover:bg-rose-700',
+        onConfirm: () => {
+          const index = appState.restaurants.findIndex(r => r.id === id);
+          if (index !== -1) {
+            const removed = appState.restaurants.splice(index, 1)[0];
+            appState.deletedRestaurantBackup = {
+              restaurant: removed,
+              originalIndex: index,
+              timestamp: new Date().toLocaleTimeString('ko-KR')
+            };
+            saveData();
+            renderApp();
+            showToast(`'${removed.name}' 식당이 삭제되었습니다. 상단 [삭제 취소]로 복구 가능합니다.`);
+          }
+        }
+      });
+    }
+
+    function undoDeleteRestaurant() {
+      if (!appState.deletedRestaurantBackup || !appState.deletedRestaurantBackup.restaurant) {
+        showToast('복구할 삭제된 식당 정보가 없습니다.', true);
+        return;
+      }
+
+      const backup = appState.deletedRestaurantBackup;
+      const restored = backup.restaurant;
+
+      if (backup.originalIndex !== undefined && backup.originalIndex <= appState.restaurants.length) {
+        appState.restaurants.splice(backup.originalIndex, 0, restored);
+      } else {
+        appState.restaurants.push(restored);
+      }
+
+      appState.deletedRestaurantBackup = null;
+      saveData();
+      renderApp();
+      showToast(`'${restored.name}' 식당과 모든 내역이 성공적으로 복구되었습니다!`);
+    }
+
+    // Undo the most recent expense for a restaurant
+    function undoLastExpense(restId) {
+      const rest = appState.restaurants.find(r => r.id === restId);
+      if (!rest || !rest.history || rest.history.length === 0) {
+        showToast('취소할 최근 지출 내역이 없습니다.', true);
+        return;
+      }
+
+      const last = rest.history[0];
+      showCustomConfirm({
+        title: '방금 지출 취소 (원터치 되돌리기)',
+        message: `'${rest.name}'에서 방금 입력한 지출:\n• 금액: ${formatWon(last.amount)}\n• 내용: ${last.memo || '식사 지출'}\n\n이 지출을 취소하고 잔액을 이전대로 되돌릴까요?`,
+        icon: 'fa-rotate-left',
+        confirmText: '지출 취소 (되돌리기)',
+        actionClass: 'bg-amber-600 hover:bg-amber-700',
+        onConfirm: () => {
+          const removed = rest.history.shift();
+          recalculateRestaurantSpent(rest);
+          saveData();
+          renderApp();
+          showToast(`${formatWon(removed.amount)} 지출이 취소되고 잔액이 복원되었습니다.`);
+        }
+      });
+    }
+
+    // Undo recent expense AND immediately open spend modal with previous values filled
+    function undoAndReenterExpense(restId) {
+      const rest = appState.restaurants.find(r => r.id === restId);
+      if (!rest || !rest.history || rest.history.length === 0) {
+        showToast('되돌릴 최근 지출이 없습니다.', true);
+        return;
+      }
+
+      const last = rest.history[0];
+      showCustomConfirm({
+        title: '지출 되돌리고 다시 적기',
+        message: `'${rest.name}'의 방금 지출(${formatWon(last.amount)})을 되돌린 후,\n올바른 금액으로 바로 다시 입력하시겠습니까?`,
+        icon: 'fa-pen-to-square',
+        confirmText: '되돌리고 다시 적기',
+        actionClass: 'bg-sky-600 hover:bg-sky-700',
+        onConfirm: () => {
+          const removed = rest.history.shift();
+          recalculateRestaurantSpent(rest);
+          saveData();
+          renderApp();
+
+          const select = document.getElementById('spendRestaurantSelect');
+          select.value = rest.id;
+          document.getElementById('spendAmountInput').value = removed.amount;
+          document.getElementById('spendMemoInput').value = removed.memo || '';
+          updateSpendBalanceHint();
+          openModal('spendModal');
+          document.getElementById('spendAmountInput').focus();
+          showToast(`이전 지출(${formatWon(removed.amount)})이 취소되었습니다. 올바른 금액을 입력하세요.`);
+        }
+      });
+    }
+
+    function recalculateRestaurantSpent(rest) {
+      if (rest.history && Array.isArray(rest.history)) {
+        rest.spent = rest.history.reduce((sum, h) => sum + (Number(h.amount) || 0), 0);
+      }
+    }
+
+    document.getElementById('restaurantForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editRestaurantId').value;
+      const name = document.getElementById('restNameInput').value.trim();
+      const carryover = parseInt(document.getElementById('restCarryoverInput').value || 0, 10);
+      const mealCount = parseInt(document.getElementById('restMealsInput').value || 0, 10);
+
+      if (!name) {
+        showToast('식당 이름을 입력해주세요.', true);
+        return;
+      }
+
+      const otherMeals = getTotalAssignedMeals(id);
+      if (otherMeals + mealCount > MAX_MONTHLY_MEALS) {
+        showToast(`한 달 급량 20개 한도를 초과합니다. (현재 가능한 최대: ${MAX_MONTHLY_MEALS - otherMeals}개)`, true);
+        return;
+      }
+
+      if (id) {
+        const target = appState.restaurants.find(r => r.id === id);
+        if (target) {
+          target.name = name;
+          target.carryover = carryover;
+          target.mealCount = mealCount;
+
+          const editedSpent = parseInt(document.getElementById('restSpentInput').value || 0, 10);
+          if (!isNaN(editedSpent) && editedSpent >= 0) {
+            target.spent = editedSpent;
+          }
+
+          showToast(`'${name}' 정보 및 금액이 수정되었습니다.`);
+        }
+      } else {
+        const newRest = {
+          id: Date.now().toString(),
+          name: name,
+          carryover: carryover,
+          mealCount: mealCount,
+          spent: 0,
+          history: []
+        };
+        appState.restaurants.push(newRest);
+        showToast(`'${name}' 식당이 새로 등록되었습니다.`);
+      }
+
+      saveData();
+      renderApp();
+      closeModal('restaurantModal');
+    });
+
+    document.getElementById('spendForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const restId = document.getElementById('spendRestaurantSelect').value;
+      const amount = parseInt(document.getElementById('spendAmountInput').value || 0, 10);
+      const memo = document.getElementById('spendMemoInput').value.trim() || '식사 지출';
+
+      if (!restId) {
+        showToast('식당을 선택해주세요.', true);
+        return;
+      }
+      if (amount <= 0) {
+        showToast('올바른 지출 금액을 입력해주세요.', true);
+        return;
+      }
+
+      const rest = appState.restaurants.find(r => r.id === restId);
+      if (!rest) return;
+
+      rest.spent = (rest.spent || 0) + amount;
+      if (!rest.history) rest.history = [];
+
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')} ${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`;
+
+      rest.history.unshift({
+        id: Date.now().toString(),
+        date: dateStr,
+        amount: amount,
+        memo: memo
+      });
+
+      saveData();
+      renderApp();
+      closeModal('spendModal');
+
+      document.getElementById('spendAmountInput').value = '';
+      document.getElementById('spendMemoInput').value = '';
+
+      showToast(`${rest.name}에 ${formatNumber(amount)}원이 차감되었습니다.`);
+    });
+
+    let currentViewingHistoryRestId = null;
+
+    function showRestaurantHistory(id) {
+      currentViewingHistoryRestId = id;
+      const rest = appState.restaurants.find(r => r.id === id);
+      if (!rest) return;
+
+      document.getElementById('historyModalTitle').innerText = `${rest.name} 지출 내역`;
+      document.getElementById('historyModalSubtitle').innerText = `총 지출: ${formatWon(rest.spent || 0)} · 현재 잔액: ${formatWon(calculateBalance(rest))}`;
+
+      const container = document.getElementById('historyListContainer');
+      container.innerHTML = '';
+
+      if (!rest.history || rest.history.length === 0) {
+        container.innerHTML = `
+          <div class="py-12 text-center text-slate-400">
+            <i class="fa-solid fa-receipt text-3xl mb-2"></i>
+            <p class="text-xs">아직 등록된 지출 내역이 없습니다.</p>
+          </div>
+        `;
+      } else {
+        rest.history.forEach((item) => {
+          const row = document.createElement('div');
+          row.className = 'p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs gap-2';
+          row.innerHTML = `
+            <div class="min-w-0 flex-1">
+              <p class="font-bold text-slate-800 truncate">${item.memo || '식사 지출'}</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">${item.date || ''}</p>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="font-bold text-rose-600 text-sm">-${formatNumber(item.amount)}원</span>
+              <button onclick="openEditExpenseModal('${rest.id}', '${item.id}')" title="이 금액만 바로 수정" class="px-2 py-1 rounded-lg bg-white hover:bg-amber-50 text-amber-700 font-semibold border border-slate-200 transition text-[11px] flex items-center gap-1">
+                <i class="fa-solid fa-pen text-[10px]"></i>
+                <span>금액수정</span>
+              </button>
+              <button onclick="deleteHistoryItem('${rest.id}', '${item.id}')" title="이 지출 건만 취소(되돌리기)" class="px-2 py-1 rounded-lg bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 transition text-[11px] flex items-center gap-1">
+                <i class="fa-solid fa-rotate-left text-[10px]"></i>
+                <span>되돌리기</span>
+              </button>
+            </div>
+          `;
+          container.appendChild(row);
+        });
+      }
+
+      openModal('historyModal');
+    }
+
+    function setEditExpenseAmount(val) {
+      document.getElementById('editExpenseAmountInput').value = val;
+    }
+
+    function openEditExpenseModal(restId, itemId) {
+      const rest = appState.restaurants.find(r => r.id === restId);
+      if (!rest || !rest.history) return;
+
+      const item = rest.history.find(h => h.id === itemId);
+      if (!item) return;
+
+      document.getElementById('editExpenseRestId').value = rest.id;
+      document.getElementById('editExpenseItemId').value = item.id;
+      document.getElementById('editExpenseRestName').innerText = `'${rest.name}' 지출 수정`;
+      document.getElementById('editExpenseAmountInput').value = item.amount;
+      document.getElementById('editExpenseMemoInput').value = item.memo || '';
+
+      openModal('editExpenseModal');
+      document.getElementById('editExpenseAmountInput').focus();
+    }
+
+    document.getElementById('editExpenseForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const restId = document.getElementById('editExpenseRestId').value;
+      const itemId = document.getElementById('editExpenseItemId').value;
+      const newAmount = parseInt(document.getElementById('editExpenseAmountInput').value || 0, 10);
+      const newMemo = document.getElementById('editExpenseMemoInput').value.trim() || '식사 지출';
+
+      if (newAmount < 0) {
+        showToast('금액은 0원 이상이어야 합니다.', true);
+        return;
+      }
+
+      const rest = appState.restaurants.find(r => r.id === restId);
+      if (!rest || !rest.history) return;
+
+      const item = rest.history.find(h => h.id === itemId);
+      if (!item) return;
+
+      const oldAmount = item.amount;
+      item.amount = newAmount;
+      item.memo = newMemo;
+
+      recalculateRestaurantSpent(rest);
+      saveData();
+      renderApp();
+      closeModal('editExpenseModal');
+
+      if (currentViewingHistoryRestId === rest.id) {
+        showRestaurantHistory(rest.id);
+      }
+
+      showToast(`지출이 ${formatWon(oldAmount)}에서 ${formatWon(newAmount)}으로 정정되었습니다.`);
+    });
+
+    function deleteHistoryItem(restId, historyId) {
+      const rest = appState.restaurants.find(r => r.id === restId);
+      if (!rest || !rest.history) return;
+
+      const itemIdx = rest.history.findIndex(h => h.id === historyId);
+      if (itemIdx === -1) return;
+
+      const targetItem = rest.history[itemIdx];
+
+      showCustomConfirm({
+        title: '지출 되돌리기 (취소)',
+        message: `'${targetItem.memo || '지출'}' (${formatWon(targetItem.amount)}) 내역을 취소하고 잔액으로 복원하시겠습니까?`,
+        confirmText: '되돌리기 실행',
+        icon: 'fa-rotate-left',
+        actionClass: 'bg-rose-600 hover:bg-rose-700',
+        onConfirm: () => {
+          const removed = rest.history.splice(itemIdx, 1)[0];
+          recalculateRestaurantSpent(rest);
+
+          saveData();
+          renderApp();
+          showRestaurantHistory(restId);
+          showToast(`지출 ${formatWon(removed.amount)}이 취소되고 잔액이 복원되었습니다.`);
+        }
+      });
+    }
+
+    document.getElementById('clearAllSpentBtn').addEventListener('click', () => {
+      if (!currentViewingHistoryRestId) return;
+      const rest = appState.restaurants.find(r => r.id === currentViewingHistoryRestId);
+      if (!rest) return;
+
+      showCustomConfirm({
+        title: '사용액 전체 0원 초기화',
+        message: `'${rest.name}'의 누적 사용액(${formatWon(rest.spent || 0)})과 내역을 모두 지우고 0원으로 되돌리시겠습니까?`,
+        confirmText: '사용액 초기화',
+        icon: 'fa-triangle-exclamation',
+        actionClass: 'bg-rose-600 hover:bg-rose-700',
+        onConfirm: () => {
+          rest.spent = 0;
+          rest.history = [];
+          saveData();
+          renderApp();
+          showRestaurantHistory(rest.id);
+          showToast(`'${rest.name}' 사용액이 0원으로 초기화되었습니다.`);
+        }
+      });
+    });
+
+    document.getElementById('rolloverMonthBtn').addEventListener('click', () => {
+      const currentMonthNum = parseInt(appState.monthLabel.replace(/[^0-9]/g, ''), 10) || 9;
+      const nextMonthNum = currentMonthNum >= 12 ? 1 : currentMonthNum + 1;
+      document.getElementById('nextMonthLabel').innerText = `${nextMonthNum}월`;
+
+      const totalBalance = appState.restaurants.reduce((sum, r) => sum + calculateBalance(r), 0);
+      document.getElementById('rolloverTotalCarry').innerText = formatWon(totalBalance);
+
+      openModal('rolloverModal');
+    });
+
+    document.getElementById('resetToDefaultBtn').addEventListener('click', () => {
+      showCustomConfirm({
+        title: '초기 엑셀 데이터로 리셋',
+        message: '모든 식당과 내역을 초기 엑셀 원본 데이터(8월 기준)로 되돌리시겠습니까?\n현재 입력된 변경사항이 모두 초기화됩니다.',
+        confirmText: '초기화 실행',
+        actionClass: 'bg-rose-600 hover:bg-rose-700',
+        onConfirm: () => {
+          appState.restaurants = JSON.parse(JSON.stringify(INITIAL_RESTAURANTS));
+          appState.monthLabel = '8월';
+          appState.rolloverBackup = null;
+          appState.deletedRestaurantBackup = null;
+          saveData();
+          renderApp();
+          closeModal('settingsModal');
+          showToast('8월 초기 데이터로 초기화되었습니다.');
+        }
+      });
+    });
+
+    document.getElementById('confirmRolloverBtn').addEventListener('click', () => {
+      const nextMonth = document.getElementById('nextMonthLabel').innerText;
+
+      appState.rolloverBackup = {
+        monthLabel: appState.monthLabel,
+        restaurants: JSON.parse(JSON.stringify(appState.restaurants)),
+        timestamp: new Date().toLocaleString('ko-KR')
+      };
+
+      appState.restaurants.forEach(rest => {
+        rest.carryover = calculateBalance(rest);
+        rest.mealCount = 0;
+        rest.spent = 0;
+        rest.history = [];
+      });
+
+      appState.monthLabel = nextMonth;
+      saveData();
+      renderApp();
+      closeModal('rolloverModal');
+      showToast(`${nextMonth}로 이월 정산이 완료되었습니다! (필요시 '이월 취소' 가능)`);
+    });
+
+    function triggerUndoRollover() {
+      if (!appState.rolloverBackup) {
+        showToast('되돌릴 직전 이월 데이터가 없습니다.', true);
+        return;
+      }
+
+      const backup = appState.rolloverBackup;
+      showCustomConfirm({
+        title: '이월 되돌리기 (이전 달로 복원)',
+        message: `이월 작업을 취소하고 직전 상태인 [${backup.monthLabel}] 급량 및 지출 내역으로 전체 복원하시겠습니까?\n\n(백업 시점: ${backup.timestamp})`,
+        icon: 'fa-clock-rotate-left',
+        confirmText: '이전 달로 복원하기',
+        actionClass: 'bg-amber-600 hover:bg-amber-700',
+        onConfirm: () => {
+          appState.monthLabel = backup.monthLabel;
+          appState.restaurants = JSON.parse(JSON.stringify(backup.restaurants));
+          appState.rolloverBackup = null;
+
+          saveData();
+          renderApp();
+          closeModal('rolloverModal');
+          showToast(`[${appState.monthLabel}] 상태로 완벽히 복원되었습니다.`);
+        }
+      });
+    }
+
+    document.getElementById('undoRolloverHeaderBtn').addEventListener('click', triggerUndoRollover);
+    document.getElementById('undoRolloverModalBtn').addEventListener('click', triggerUndoRollover);
+    document.getElementById('undoDeleteHeaderBtn').addEventListener('click', undoDeleteRestaurant);
+
+    document.getElementById('openSettingsBtn').addEventListener('click', () => {
+      openModal('settingsModal');
+    });
+
+    function saveSettings() {
+      const monthInput = document.getElementById('settingMonthInput').value.trim();
+      if (monthInput) {
+        appState.monthLabel = monthInput;
+      }
+      saveData();
+      renderApp();
+      closeModal('settingsModal');
+      showToast('설정이 저장되었습니다.');
+    }
+
+    document.getElementById('exportJsonBtn').addEventListener('click', () => {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `급량비_백업_${appState.monthLabel}_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast('백업 파일이 다운로드되었습니다.');
+    });
+
+    document.getElementById('importJsonInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        try {
+          const imported = JSON.parse(event.target.result);
+          if (imported.restaurants && Array.isArray(imported.restaurants)) {
+            appState = imported;
+            saveData();
+            renderApp();
+            closeModal('settingsModal');
+            showToast('백업 데이터가 성공적으로 복원되었습니다.');
+          } else {
+            showToast('올바르지 않은 백업 파일 형식입니다.', true);
+          }
+        } catch (err) {
+          showToast('파일을 읽는 도중 오류가 발생했습니다.', true);
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    const viewCardBtn = document.getElementById('viewCardBtn');
+    const viewTableBtn = document.getElementById('viewTableBtn');
+    const cardViewContainer = document.getElementById('cardViewContainer');
+    const tableViewContainer = document.getElementById('tableViewContainer');
+
+    viewCardBtn.addEventListener('click', () => {
+      appState.activeView = 'card';
+      viewCardBtn.className = 'px-2.5 py-1 rounded-md bg-white font-medium text-slate-800 shadow-xs transition';
+      viewTableBtn.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition';
+      cardViewContainer.classList.remove('hidden');
+      tableViewContainer.classList.add('hidden');
+    });
+
+    viewTableBtn.addEventListener('click', () => {
+      appState.activeView = 'table';
+      viewTableBtn.className = 'px-2.5 py-1 rounded-md bg-white font-medium text-slate-800 shadow-xs transition';
+      viewCardBtn.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition';
+      tableViewContainer.classList.remove('hidden');
+      cardViewContainer.classList.add('hidden');
+    });
+
+    document.getElementById('searchRestaurant').addEventListener('input', () => {
+      renderApp();
+    });
+
+    document.getElementById('fabQuickSpendBtn').addEventListener('click', () => {
+      if (appState.restaurants.length === 0) {
+        showToast('먼저 식당을 등록해주세요.', true);
+        return;
+      }
+      populateSpendModalOptions();
+      openModal('spendModal');
+      document.getElementById('spendAmountInput').focus();
+    });
+
+    document.getElementById('spendRestaurantSelect').addEventListener('change', updateSpendBalanceHint);
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        ['spendModal', 'restaurantModal', 'historyModal', 'rolloverModal', 'settingsModal', 'customConfirmModal', 'editExpenseModal', 'aiModal'].forEach(closeModal);
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      renderApp();
+    });
+  </script>
+</body>
+</html>
