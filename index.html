@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>급량매니저</title>
   
   <!-- Tailwind CSS CDN -->
@@ -20,11 +20,11 @@
       font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
       -webkit-tap-highlight-color: transparent;
       user-select: none;
+      padding-bottom: env(safe-area-inset-bottom, 20px);
     }
     input, textarea, select {
       user-select: auto;
     }
-    /* Disable number input arrows */
     input[type=number]::-webkit-inner-spin-button, 
     input[type=number]::-webkit-outer-spin-button { 
       -webkit-appearance: none; 
@@ -38,7 +38,7 @@
     .reorder-chosen {
       background-color: #eff6ff !important;
       border-color: #0284c7 !important;
-      box-shadow: 0 12px 25px -4px rgba(2, 132, 199, 0.25), 0 8px 10px -6px rgba(2, 132, 199, 0.2) !important;
+      box-shadow: 0 14px 28px -4px rgba(2, 132, 199, 0.3), 0 10px 10px -5px rgba(2, 132, 199, 0.2) !important;
       transform: scale(1.03);
       transition: transform 0.15s ease, box-shadow 0.15s ease;
       z-index: 50;
@@ -48,9 +48,14 @@
       background-color: #e0f2fe !important;
       border: 2px dashed #0284c7 !important;
     }
+
+    /* Safe bottom sheet container for mobile gesture navigation */
+    .modal-safe-bottom {
+      padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 24px) !important;
+    }
   </style>
 </head>
-<body class="bg-[#F8FAFC] text-slate-800 min-h-screen pb-28 antialiased">
+<body class="bg-[#F8FAFC] text-slate-800 min-h-screen antialiased pb-28">
 
   <!-- Optimized App Bar -->
   <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3 sm:px-4 py-2.5">
@@ -163,7 +168,7 @@
         </button>
       </div>
 
-      <!-- Pulled Outside [순서 편집] Button -->
+      <!-- Explicit Pulled Outside [순서 편집] Button -->
       <button id="toggleReorderBtn" class="h-10 px-3 rounded-xl border border-slate-300 bg-white text-slate-700 text-xs font-bold flex items-center gap-1.5 shrink-0 hover:bg-slate-50 transition active:scale-95 shadow-xs">
         <i class="fa-solid fa-arrow-down-up-across-line text-xs"></i>
         <span id="reorderBtnLabel">순서 편집</span>
@@ -208,16 +213,16 @@
   </main>
 
   <!-- Floating Action Button: 지출 차감 -->
-  <div class="fixed bottom-5 right-5 z-20">
+  <div class="fixed bottom-6 right-5 z-20" style="bottom: calc(env(safe-area-inset-bottom, 16px) + 20px);">
     <button onclick="openSpendModal()" class="flex items-center gap-2 bg-[#F43F5E] hover:bg-[#e11d48] text-white px-5 py-3 rounded-full shadow-lg hover:shadow-xl transition transform active:scale-95 font-bold text-sm">
       <i class="fa-regular fa-circle-minus text-base"></i>
       <span>지출 차감</span>
     </button>
   </div>
 
-  <!-- Modal: Spend Modal (지출 차감) -->
+  <!-- Modal: Spend Modal (지출 차감 - 하단 내비게이션 바 안전 여백 확보) -->
   <div id="spendModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
-    <div class="bg-white w-full max-w-md rounded-t-[24px] sm:rounded-[20px] shadow-2xl overflow-hidden p-5 space-y-3.5 max-h-[90vh] overflow-y-auto">
+    <div class="bg-white w-full max-w-md rounded-t-[24px] sm:rounded-[20px] shadow-2xl overflow-hidden p-5 space-y-3.5 max-h-[92vh] overflow-y-auto modal-safe-bottom">
       <div class="flex items-center justify-between pb-2 border-b border-slate-100">
         <h3 class="font-bold text-slate-900 text-base">식사 지출 차감</h3>
         <button onclick="closeModal('spendModal')" class="text-slate-400 hover:text-slate-600 p-1">
@@ -237,12 +242,17 @@
             <input type="number" id="spendAmountInput" required min="1" placeholder="예: 9000" class="w-full text-sm pl-3 pr-8 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0284C7] font-bold text-slate-800">
             <span class="absolute right-3 top-3 text-xs text-slate-400 font-medium">원</span>
           </div>
-          <!-- Quick Amount Chips (Matches Flutter: 8000, 9000, 10000, 18000) -->
+
+          <!-- Quick Amount Chips with Cumulative Add & Clear button -->
           <div class="flex flex-wrap gap-1.5 mt-2">
-            <button type="button" onclick="setSpendAmount(8000)" class="text-[11px] px-2.5 py-1 rounded-lg bg-[#F1F5F9] hover:bg-slate-200 text-slate-700 font-medium">8,000원</button>
-            <button type="button" onclick="setSpendAmount(9000)" class="text-[11px] px-2.5 py-1 rounded-lg bg-[#F1F5F9] hover:bg-slate-200 text-slate-700 font-medium">9,000원</button>
-            <button type="button" onclick="setSpendAmount(10000)" class="text-[11px] px-2.5 py-1 rounded-lg bg-[#F1F5F9] hover:bg-slate-200 text-slate-700 font-medium">10,000원</button>
-            <button type="button" onclick="setSpendAmount(18000)" class="text-[11px] px-2.5 py-1 rounded-lg bg-[#F1F5F9] hover:bg-slate-200 text-slate-700 font-medium">18,000원</button>
+            <button type="button" onclick="addSpendAmount(8000)" class="text-[11px] px-2.5 py-1 rounded-lg bg-[#F1F5F9] hover:bg-slate-200 text-slate-700 font-medium transition active:scale-95">+8,000원</button>
+            <button type="button" onclick="addSpendAmount(9000)" class="text-[11px] px-2.5 py-1 rounded-lg bg-[#F1F5F9] hover:bg-slate-200 text-slate-700 font-medium transition active:scale-95">+9,000원</button>
+            <button type="button" onclick="addSpendAmount(10000)" class="text-[11px] px-2.5 py-1 rounded-lg bg-[#F1F5F9] hover:bg-slate-200 text-slate-700 font-medium transition active:scale-95">+10,000원</button>
+            <button type="button" onclick="addSpendAmount(18000)" class="text-[11px] px-2.5 py-1 rounded-lg bg-[#F1F5F9] hover:bg-slate-200 text-slate-700 font-medium transition active:scale-95">+18,000원</button>
+            <button type="button" onclick="clearSpendAmount()" class="text-[11px] px-2.5 py-1 rounded-lg bg-[#E2E8F0] hover:bg-slate-300 text-slate-600 font-semibold transition active:scale-95 flex items-center gap-1">
+              <i class="fa-solid fa-rotate-right text-[10px]"></i>
+              <span>지우기</span>
+            </button>
           </div>
         </div>
 
@@ -251,8 +261,9 @@
           <input type="text" id="spendMemoInput" placeholder="예: 점심 제육덮밥" class="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0284C7]">
         </div>
 
-        <div class="pt-2">
-          <button type="submit" class="w-full h-11 rounded-xl bg-[#F43F5E] hover:bg-[#e11d48] text-white font-bold text-sm shadow-xs transition">
+        <!-- Submit Button clearly above navigation bar -->
+        <div class="pt-3">
+          <button type="submit" class="w-full h-12 rounded-xl bg-[#F43F5E] hover:bg-[#e11d48] text-white font-bold text-sm shadow-md transition active:scale-95">
             차감 저장하기
           </button>
         </div>
@@ -290,7 +301,7 @@
 
   <!-- Modal: History Modal (지출 내역) -->
   <div id="historyModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
-    <div class="bg-white w-full max-w-md rounded-t-[24px] sm:rounded-[20px] shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
+    <div class="bg-white w-full max-w-md rounded-t-[24px] sm:rounded-[20px] shadow-2xl overflow-hidden max-h-[85vh] flex flex-col modal-safe-bottom">
       <div class="p-4 border-b border-slate-100 flex items-center justify-between">
         <div>
           <h3 id="historyModalTitle" class="font-bold text-slate-900 text-base">식당 지출 내역</h3>
@@ -356,7 +367,7 @@
 
   <!-- Modal: AI Assistant Modal -->
   <div id="aiModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
-    <div class="bg-white w-full max-w-md rounded-t-[24px] sm:rounded-[20px] shadow-2xl overflow-hidden p-5 space-y-3.5 max-h-[85vh] overflow-y-auto">
+    <div class="bg-white w-full max-w-md rounded-t-[24px] sm:rounded-[20px] shadow-2xl overflow-hidden p-5 space-y-3.5 max-h-[85vh] overflow-y-auto modal-safe-bottom">
       <div class="flex items-center justify-between pb-2 border-b border-slate-100">
         <div class="flex items-center gap-2">
           <i class="fa-solid fa-wand-magic-sparkles text-purple-600 text-base"></i>
@@ -543,7 +554,7 @@
       closeModal('confirmModal');
     });
 
-    // Toggle Reorder Mode with Visual Feedback
+    // Toggle Reorder Mode with Floating Animation & Haptic style
     function toggleReorderMode(forceState = null) {
       isReorderMode = forceState !== null ? forceState : !isReorderMode;
 
@@ -633,7 +644,7 @@
       populateSpendDropdown();
     }
 
-    // Main Card Renderer: Exactly matching photo 1 & 2
+    // Main Card Renderer: Exactly matching photo 1 & 2 + Meal Count Display
     function renderCards() {
       const container = document.getElementById('normalCardContainer');
       container.innerHTML = '';
@@ -653,13 +664,22 @@
         const card = document.createElement('div');
         card.className = "bg-white rounded-[18px] p-3.5 border border-slate-200/90 shadow-xs flex flex-col justify-between";
 
+        // Meal count badge if assigned > 0
+        const mealBadge = rest.mealCount > 0 
+          ? `<span class="text-[10px] px-2 py-0.5 rounded-md bg-[#E0F2FE] text-[#0284C7] font-bold shrink-0">${rest.mealCount}식 (+${formatWon(rest.mealCount * MEAL_UNIT_PRICE)})</span>`
+          : '';
+
+        // Meal button label showing count
+        const mealBtnLabel = rest.mealCount > 0 ? `급량 관리 (${rest.mealCount}식)` : '급량 관리';
+
         card.innerHTML = `
           <div>
-            <!-- Header: Green Dot + Name + Dropdown -->
+            <!-- Header: Green Dot + Name + Meal Badge + Dropdown -->
             <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span class="w-[7px] h-[7px] rounded-full bg-[#22C55E]"></span>
-                <span class="text-base font-bold text-[#0F172A] tracking-tight">${rest.name}</span>
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-[7px] h-[7px] rounded-full bg-[#22C55E] shrink-0"></span>
+                <span class="text-base font-bold text-[#0F172A] tracking-tight truncate">${rest.name}</span>
+                ${mealBadge}
               </div>
               <div class="relative">
                 <button onclick="toggleCardMenu('${rest.id}')" class="w-7 h-7 rounded-lg text-[#94A3B8] hover:text-slate-700 flex items-center justify-center">
@@ -699,9 +719,9 @@
             <button onclick="openSpendModal('${rest.id}')" class="flex-1 h-[38px] rounded-[10px] bg-[#F43F5E] hover:bg-[#e11d48] text-white font-bold text-xs shadow-xs transition active:scale-95">
               지출 차감
             </button>
-            <button onclick="openMealCountModal('${rest.id}')" class="flex-1 h-[38px] rounded-[10px] bg-[#E0F2FE] hover:bg-sky-200 text-[#0284C7] font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95">
+            <button onclick="openMealCountModal('${rest.id}')" class="flex-1 h-[38px] rounded-[10px] bg-[#E0F2FE] hover:bg-sky-200 text-[#0284C7] font-bold text-xs flex items-center justify-center gap-1 transition active:scale-95">
               <i class="fa-solid fa-sliders text-xs"></i>
-              <span>급량 관리</span>
+              <span>${mealBtnLabel}</span>
             </button>
             <button onclick="openHistoryModal('${rest.id}')" class="h-[38px] px-2.5 rounded-[10px] border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-bold text-xs flex items-center gap-1 shrink-0 transition">
               <i class="fa-solid fa-clock-rotate-left text-[11px] text-slate-400"></i>
@@ -731,10 +751,15 @@
         item.setAttribute('data-id', rest.id);
         item.className = "bg-white rounded-[14px] px-3.5 py-3 border border-slate-200/90 shadow-xs flex items-center justify-between cursor-grab active:cursor-grabbing";
 
+        const mealBadge = rest.mealCount > 0 
+          ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-[#E0F2FE] text-[#0284C7] font-bold shrink-0 ml-1.5">${rest.mealCount}식</span>`
+          : '';
+
         item.innerHTML = `
-          <div class="flex items-center gap-2.5 min-w-0">
+          <div class="flex items-center gap-2 min-w-0">
             <span class="w-[9px] h-[9px] rounded-full bg-[#22C55E] shrink-0"></span>
             <span class="text-sm font-bold text-[#0F172A] truncate">${rest.name}</span>
+            ${mealBadge}
           </div>
           <div class="flex items-center gap-3 shrink-0">
             <span class="text-sm font-black ${balance < 0 ? 'text-[#E11D48]' : 'text-[#0284C7]'}">${formatWon(balance)}</span>
@@ -852,8 +877,15 @@
       });
     }
 
-    function setSpendAmount(val) {
-      document.getElementById('spendAmountInput').value = val;
+    // Cumulative add to input (e.g. 10000 twice = 20000)
+    function addSpendAmount(val) {
+      const input = document.getElementById('spendAmountInput');
+      const current = parseInt(input.value || 0, 10);
+      input.value = current + val;
+    }
+
+    function clearSpendAmount() {
+      document.getElementById('spendAmountInput').value = '';
     }
 
     document.getElementById('spendForm').addEventListener('submit', (e) => {
